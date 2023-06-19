@@ -1,0 +1,20 @@
+[
+	{
+		"url":"script",
+		"alert":"[!] Script tag found in url!"
+	},
+	{
+		"url":"UNION",
+		"alert":"[!] UNION operator found in url!"
+	},
+	{
+		"content":"<script>",
+		"alert":"[!] Possible XSS Attack."
+	},
+	{
+		"headers":{
+			"Host":"localhost"
+		},
+		"alert":"Test HEADER"
+	}
+]

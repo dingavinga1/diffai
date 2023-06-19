@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>دفاعی - Console</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo.png') }}">
+    <meta charset="UTF-8">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Reem+Kufi+Fun:wght@500&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <!-- Bootstrap JS -->
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.3.2/socket.io.min.js"></script>
+    <style>
+        body {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            margin: 0;
+
+            background-color:#090f24;
+            color: #FF005C;
+
+            font-family:Consolas, monospace;
+        }
+
+        .container-fluid {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding-top:2%;
+        }
+
+        .container {
+            min-width: 50vw;
+        }
+
+        .page-content {
+            max-width: 800px;
+            text-align: center;
+        }
+
+        .form-group {
+          margin-bottom: 1rem;
+        }
+
+        .form-control {
+          background-color: #212121;
+          border-color: #212121;
+          color: #00ff00;
+          font-family: Consolas, monospace;
+        }
+
+        .btn-primary {
+          background-color: #00ff00;
+          border-color: #00ff00;
+        }
+
+        #alert-message {
+            font-weight: bolder;
+            font-size: x-large;
+            margin-bottom: 5%;
+        }
+
+        .emergency-bell {
+            display:block;
+            margin:50px auto;
+            width:30vh;
+            height:30vh;
+            background-size:contain;
+            box-shadow:  0 0 30px 20px red inset;
+            border-radius:50%;
+        }
+
+        .animate {
+            animation: glow 0.5s infinite alternate;
+        }
+
+        @keyframes glow{
+            from{
+                box-shadow: 0 0 30px 20px red inset;
+            }
+            to {
+                box-shadow: 0 0 30px 40px red inset;
+            }
+        }
+
+        .terminal-window {
+          margin-top: 2%;
+          background-color: #000;
+          color: #0f0;
+          font-family: Consolas, monospace;
+          font-size: 14px;
+          padding: 10px;
+          border: 1px solid #555;
+          border-radius: 5px;
+          box-shadow: 0px 0px 10px #000;
+          min-height: 70vh;
+          min-width: 50%;
+        }
+
+        .terminal-header {
+          display: flex;
+          justify-content: flex-start;
+          margin-bottom: 10px;
+        }
+
+        .terminal-button {
+          height: 12px;
+          width: 12px;
+          margin-right: 5px;
+          border-radius: 50%;
+        }
+
+        .terminal-button.red {
+          background-color: #f33;
+        }
+
+        .terminal-button.yellow {
+          background-color: #ff0;
+        }
+
+        .terminal-button.green {
+          background-color: #0f0;
+        }
+
+        .terminal-body {
+          height: 200px;
+          overflow-y: scroll;
+        }
+
+        .terminal-line {
+          display: flex;
+          align-items: center;
+          margin-bottom: 5px;
+        }
+
+        .terminal-prompt {
+          color: #0ff;
+          margin-right: 5px;
+        }
+
+        .terminal-text {
+          margin-left: 5px;
+        }
+
+        #elapsed-time {
+          font-size: 1.5rem;
+          font-family: 'Consolas', monospace;
+          color: #fff;
+          background-color: #333;
+          padding: 0.5rem;
+          border-radius: 0.25rem;
+          box-shadow: 0 0 0.25rem rgba(0, 0, 0, 0.5);
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Navigation panel -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <a id="home-link" class="navbar-brand" href="#" style="font-family: 'Reem Kufi Fun', sans-serif;">دفاعی</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav">
+                <li class="nav-item">
+                    <a class="nav-link" href="#" id="train-link">Train</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" id="view-logs-link">View Logs</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Page content -->
+    <div class="container-fluid">
+        <div class="page-content">
+            <h1 style="font-family: 'Reem Kufi Fun', sans-serif; color:white; font-size:100pt;">دفاعی</h1>
+            <p>This page is to show alerts in realtime.</p>
+            <div class="emergency-bell"></div>
+            <div id="alert-message"></div>
+            <div id="elapsed-time"></div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+        // function for sleep/timer-based activity
+        function wait(timeout) {
+          return new Promise(function(resolve, reject) {
+            setTimeout(resolve, timeout);
+          });
+        }
+
+        const terminalLines=[] //array to store new alerts
+
+        // displaying the elapsed time element
+        function updateTime() {
+              const elapsedTimeElement = document.getElementById('elapsed-time');
+              const now = new Date();
+              const elapsedSeconds = Math.floor((now - startTime) / 1000);
+              const hours = Math.floor(elapsedSeconds / 3600);
+              const minutes = Math.floor((elapsedSeconds - (hours * 3600)) / 60);
+              const seconds = elapsedSeconds % 60;
+              const timeString = `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+              elapsedTimeElement.textContent = timeString;
+        }
+        const startTime = new Date();
+        setInterval(updateTime, 1000);
+
+        $(document).ready(function(){
+
+            var socket=io("/web")
+            socket.on('connect', function () {
+                console.log('Connected to server');
+            });
+
+            socket.on('disconnect', function () {
+                console.log('Disconnected from server');
+            });
+
+            // socket io handler for training engine
+            socket.on('train_log', function(data){
+                $('#train-logs').append(`
+                    <div class="terminal-line"><span class="terminal-text" style="color:red;">${data['log']}</span></div>
+                `);
+            });
+
+            // socket io handler for new alert
+            socket.on('new_alert', function(data){
+                terminalLines.push({prompt: '', text: data['alert']}); //adding alert to array for view logs page
+
+                // animation handler
+                $('.emergency-bell').addClass('animate')
+                $('#alert-message').text('[ALERT!] ' +data['alert']);
+                $('#alert-message').show();
+
+                // creating beep sound when alert is triggered
+                let beepSound=new Audio("static/beep.mp3");
+                beepSound.play();
+
+                // removing alert animation and message after 10 seconds
+                wait(10000).then(function(){
+                    $('.emergency-bell').removeClass('animate');
+                    $('#alert-message').hide();
+                });
+
+            });
+
+            // Home link click handler
+            $('#home-link').click(function(){
+                $('.page-content').html(`
+                    <h1 style="font-family: \'Reem Kufi Fun\', sans-serif; color:white; font-size:100pt;">دفاعی</h1>
+                    <p>This page is to show alerts in realtime.</p>
+                    <div class="emergency-bell">
+                    </div><div id="alert-message"></div>
+                    <div id="elapsed-time"></div>
+                `);
+            });
+
+            
+            // Train link click handler
+            $('#train-link').click(function(){
+
+                $('.page-content').html(`
+                <h1>Train Page</h1>
+                  <form id="train-form">
+                    <div class="form-group" style="margin-top:10%;">
+                      <label for="positiveDataset">Path to Positive Dataset:</label>
+                      <input type="text" class="form-control" id="positiveDataset" placeholder="/path/to/positive/dataset">
+                    </div>
+                    <div class="form-group">
+                      <label for="negativeDataset">Path to Negative Dataset:</label>
+                      <input type="text" class="form-control" id="negativeDataset" placeholder="/path/to/negative/dataset">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Train</button>
+                  </form>
+                `);
+
+                // train form submission handler
+                $("form#train-form").submit(function(event){
+                    event.preventDefault(); //preventing the page from reloading
+                    const goodpath=$("#positiveDataset").val();
+                    const badpath=$("#negativeDataset").val();
+                    const data={goodpath: goodpath, badpath:badpath};
+
+                    socket.emit("train", data); //sending dataset paths to backend
+
+                    // replacing form with training output
+                    $('.page-content').html(`
+                        <div class="container">
+                          <div class="row">
+                            <div class="col-md-12">
+                              <h2 style="font-family: Consolas, monospace;">Train</h2>
+                            </div>
+                          </div>
+                          <div class="row">
+                            <div class="col-md-12">
+                              <div class="terminal-window">
+                                <div class="terminal-header">
+                                  <div class="terminal-button red"></div>
+                                  <div class="terminal-button yellow"></div>
+                                  <div class="terminal-button green"></div>
+                                </div>
+                                <div id="train-logs" class="terminal-body">
+                                  <div class="terminal-line">
+                                    <span class="terminal-prompt">user@host:~$</span>
+                                    <span class="terminal-text">python train.py goodpath badpath</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                    `);
+                });
+            });
+
+            // View logs link click handler
+            $('#view-logs-link').click(function(){
+                $('.page-content').html(`
+                    <div class="container">
+                      <div class="row">
+                        <div class="col-md-12">
+                          <h2 style="font-family: Consolas, monospace;">View Logs</h2>
+                        </div>
+                      </div>
+                      <div class="row">
+                        <div class="col-md-12">
+                          <div class="terminal-window">
+                            <div class="terminal-header">
+                              <div class="terminal-button red"></div>
+                              <div class="terminal-button yellow"></div>
+                              <div class="terminal-button green"></div>
+                            </div>
+                            <div id="terminal-body" class="terminal-body">
+                              <div class="terminal-line">
+                                <span class="terminal-prompt">user@host:~$</span>
+                                <span class="terminal-text">cd /var/log</span>
+                              </div>
+                              <div class="terminal-line">
+                                <span class="terminal-prompt">user@host:/var/log$</span>
+                                <span class="terminal-text">tail -f dafai.log</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                `);
+
+                //Adding new alerts to our "View logs" page
+                for (let i = 0; i < terminalLines.length; i++) {
+                    const prompt = terminalLines[i].prompt;
+                    const text = terminalLines[i].text;
+                    const newLine = `<div class="terminal-line"><span class="terminal-prompt">${prompt}</span><span class="terminal-text" style="color:red;">${text}</span></div>`;
+                    $('#terminal-body').append(newLine);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
