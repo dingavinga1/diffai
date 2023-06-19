@@ -99,6 +99,8 @@ To run the IDS, we will need two separate tabs i.e. for MITMProxy and the backen
 ### Starting the Web Application
 To start the web application (IDS backend), we can use the following command: ```python app.py```. This will start a web server on ```http://localhost:5000```.
 
+> Please note that the trained model is a little bulky in size so we decided not to upload it. We advise you to train the model against the mentioned dataset before running the application as an IDS.
+
 ### Starting MITMProxy 
 Starting the web application is a dependency for this step as we are using Socket-IO for backend and frontend communication. That being said, the following command can be used to start up MITMProxy on port 8080: ```mitmproxy -s mitm.py```.
 
